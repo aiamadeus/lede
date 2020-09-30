@@ -1,0 +1,292 @@
+From a9b6626ced2195c618d9a8cb2af3dfe1a3df504a Mon Sep 17 00:00:00 2001
+From: Ansuel Smith <ansuelsmth@gmail.com>
+Date: Wed, 5 Aug 2020 14:19:23 +0200
+Subject: [RFC PATCH v3 1/2] cpufreq: qcom: Add Krait Cache Scaling support
+
+Qcom Krait CPUs use the generic cpufreq-dt driver and doesn't actually
+scale the Cache frequency when the CPU frequency is changed. This
+companion driver register with the cpu notifier and scale the Cache
+based on the max Freq across all core as the CPU cache is shared across
+all of them. If provided this also scale the voltage of the regulator
+attached to the CPU cache. The scaling logic is based on the CPU freq
+and the 3 scaling interval are set by the device dts.
+
+Signed-off-by: Ansuel Smith <ansuelsmth@gmail.com>
+---
+ drivers/cpufreq/Kconfig.arm   |   9 ++
+ drivers/cpufreq/Makefile      |   1 +
+ drivers/cpufreq/krait-cache.c | 232 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 242 insertions(+)
+ create mode 100644 drivers/cpufreq/krait-cache.c
+
+diff --git a/drivers/cpufreq/Kconfig.arm b/drivers/cpufreq/Kconfig.arm
+index c6cbfc8baf72..4ed5e73051df 100644
+--- a/drivers/cpufreq/Kconfig.arm
++++ b/drivers/cpufreq/Kconfig.arm
+@@ -133,6 +133,15 @@ config ARM_OMAP2PLUS_CPUFREQ
+ 	depends on ARCH_OMAP2PLUS
+ 	default ARCH_OMAP2PLUS
+ 
++config ARM_QCOM_KRAIT_CACHE_SCALE
++	tristate "Scaling support for Krait CPU Cache"
++	depends on ARCH_QCOM || COMPILE_TEST
++	help
++	  This adds the Scaling support for the Krait CPU Cache shared by
++	  all cores.
++
++	  If in doubt, say N.
++
+ config ARM_QCOM_CPUFREQ_NVMEM
+ 	tristate "Qualcomm nvmem based CPUFreq"
+ 	depends on ARCH_QCOM
+diff --git a/drivers/cpufreq/Makefile b/drivers/cpufreq/Makefile
+index f6670c4abbb0..eee53d7e8b09 100644
+--- a/drivers/cpufreq/Makefile
++++ b/drivers/cpufreq/Makefile
+@@ -63,6 +63,7 @@ obj-$(CONFIG_MACH_MVEBU_V7)		+= mvebu-cpufreq.o
+ obj-$(CONFIG_ARM_OMAP2PLUS_CPUFREQ)	+= omap-cpufreq.o
+ obj-$(CONFIG_ARM_PXA2xx_CPUFREQ)	+= pxa2xx-cpufreq.o
+ obj-$(CONFIG_PXA3xx)			+= pxa3xx-cpufreq.o
++obj-$(CONFIG_ARM_QCOM_KRAIT_CACHE_SCALE) += krait-cache.o
+ obj-$(CONFIG_ARM_QCOM_CPUFREQ_HW)	+= qcom-cpufreq-hw.o
+ obj-$(CONFIG_ARM_QCOM_CPUFREQ_NVMEM)	+= qcom-cpufreq-nvmem.o
+ obj-$(CONFIG_ARM_RASPBERRYPI_CPUFREQ) 	+= raspberrypi-cpufreq.o
+diff --git a/drivers/cpufreq/krait-cache.c b/drivers/cpufreq/krait-cache.c
+new file mode 100644
+index 000000000000..0646fde9d920
+--- /dev/null
++++ b/drivers/cpufreq/krait-cache.c
+@@ -0,0 +1,230 @@
++// SPDX-License-Identifier: GPL-2.0
++
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/cpufreq.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/clk.h>
++#include <linux/slab.h>
++#include <linux/regulator/consumer.h>
++#include <linux/pm_opp.h>
++
++struct krait_data {
++	struct device *dev;
++
++	unsigned int *l2_rates; /* L2 bus clock rate */
++	unsigned int *l2_cpufreq; /* L2 target CPU frequency */
++
++	struct notifier_block nb;
++};
++
++static int krait_cache_set_opp(struct dev_pm_set_opp_data *data)
++{
++	unsigned long old_freq = data->old_opp.rate, freq = data->new_opp.rate;
++	struct dev_pm_opp_supply *supply = &data->new_opp.supplies[0];
++	struct regulator *reg = data->regulators[0];
++	struct clk *clk = data->clk;
++	struct krait_data *kdata;
++	unsigned long idle_freq;
++	int ret;
++
++	kdata = (struct krait_data *)dev_get_drvdata(data->dev);
++
++	idle_freq = kdata->l2_rates[0];
++
++	ret = regulator_set_voltage_triplet(reg, supply->u_volt_min,
++					    supply->u_volt, supply->u_volt_max);
++	if (ret)
++		goto exit;
++
++	/*
++	 * Set to idle bin if switching from normal to high bin
++	 * or vice versa. It has been notice that a bug is triggered
++	 * in cache scaling when more than one bin is scaled, to fix
++	 * this we first need to transition to the base rate and then
++	 * to target rate
++	 */
++	if (likely(freq != idle_freq && old_freq != idle_freq)) {
++		ret = clk_set_rate(clk, idle_freq);
++		if (ret)
++			goto exit;
++	}
++
++	ret = clk_set_rate(clk, freq);
++	if (ret)
++		goto exit;
++
++exit:
++	return ret;
++}
++
++static int krait_cache_notifier(struct notifier_block *nb, unsigned long cmd,
++				void *v)
++{
++	unsigned int target_freq, cpu, cur_cpu;
++	unsigned int *freq_tbl, *freq_l2tbl;
++	struct cpufreq_freqs *freqs;
++	struct krait_data *data;
++	int ret = 0;
++
++	if (cmd == CPUFREQ_PRECHANGE) {
++		freqs = (struct cpufreq_freqs *)v;
++		target_freq = freqs->new;
++		cur_cpu = freqs->policy->cpu;
++
++		data = container_of(nb, struct krait_data, nb);
++
++		freq_tbl = data->l2_cpufreq;
++		freq_l2tbl = data->l2_rates;
++
++		/* find the max freq across all core */
++		for_each_present_cpu(cpu)
++			if (cpu != cur_cpu)
++				target_freq = max(target_freq,
++						  cpufreq_quick_get(cpu));
++
++		while (*(freq_tbl = freq_tbl + 1) && target_freq >= *freq_tbl)
++			freq_l2tbl = freq_l2tbl + 1;
++
++		ret = dev_pm_opp_set_rate(data->dev, *freq_l2tbl);
++		if (ret)
++			goto exit;
++	}
++
++exit:
++	return notifier_from_errno(ret);
++}
++
++static int krait_cache_probe(struct platform_device *pdev)
++{
++	struct clk *l2_clk;
++	int ret, i = 0, count;
++	unsigned long freq = 0;
++	struct dev_pm_opp *opp;
++	struct opp_table *table;
++	struct device_node *vdd;
++	struct krait_data *data;
++	struct device *dev = &pdev->dev;
++	struct device_node *node = dev->of_node;
++
++	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	data->dev = dev;
++
++	l2_clk = devm_clk_get(dev, "l2");
++	if (IS_ERR(l2_clk)) {
++		ret = PTR_ERR(l2_clk);
++		goto exit;
++	}
++
++	vdd = of_parse_phandle(node, "l2-supply", 0);
++	if (!vdd) {
++		dev_err(dev, "missing L2 supply\n");
++		ret = -EINVAL;
++		goto exit;
++	}
++
++	table = dev_pm_opp_set_regulators(dev, (const char *[]){ vdd->name },
++					  1);
++	if (IS_ERR(table)) {
++		ret = PTR_ERR(table);
++		dev_err(dev, "failed to set regulators %d\n", ret);
++		goto exit_vdd;
++	}
++
++	ret = PTR_ERR_OR_ZERO(
++		dev_pm_opp_register_set_opp_helper(dev, krait_cache_set_opp));
++	if (ret)
++		goto exit_vdd;
++
++	ret = dev_pm_opp_of_add_table(dev);
++	if (ret) {
++		dev_err(dev, "failed to parse L2 freq thresholds\n");
++		goto exit_vdd;
++	}
++
++	count = dev_pm_opp_get_opp_count(dev);
++
++	data->l2_cpufreq =
++		devm_kzalloc(dev, sizeof(unsigned int) * count, GFP_KERNEL);
++	if (!data->l2_cpufreq) {
++		ret = -ENOMEM;
++		goto exit_vdd;
++	}
++
++	ret = of_property_read_u32_array(node, "l2-cpufreq", data->l2_cpufreq,
++					 count);
++	if (ret) {
++		dev_err(dev, "failed to parse L2 cpufreq thresholds\n");
++		goto exit_vdd;
++	}
++
++	/* Allocate space for opp_count + 1, the last index is used as sentinel */
++	data->l2_rates =
++		devm_kzalloc(dev, sizeof(unsigned int) * count + 1, GFP_KERNEL);
++	if (!data->l2_rates) {
++		ret = -ENOMEM;
++		goto exit_vdd;
++	}
++
++	/* populate the table in increasing order */
++	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(dev, &freq))) {
++		data->l2_rates[i] = freq;
++		freq++;
++		i++;
++		dev_pm_opp_put(opp);
++	}
++
++	platform_set_drvdata(pdev, data);
++
++	data->nb.notifier_call = krait_cache_notifier;
++	cpufreq_register_notifier(&data->nb, CPUFREQ_TRANSITION_NOTIFIER);
++
++exit_vdd:
++	of_node_put(vdd);
++exit:
++	return ret;
++}
++
++static int krait_cache_remove(struct platform_device *pdev)
++{
++	struct krait_data *data = platform_get_drvdata(pdev);
++
++	dev_pm_opp_remove_table(data->dev);
++	cpufreq_unregister_notifier(&data->nb, CPUFREQ_TRANSITION_NOTIFIER);
++
++	return 0;
++}
++
++static const struct of_device_id krait_cache_match_table[] = {
++	{ .compatible = "qcom,krait-cache" },
++	{}
++};
++
++static struct platform_driver krait_cache_driver = {
++	.probe		= krait_cache_probe,
++	.remove		= krait_cache_remove,
++	.driver		= {
++		.name   = "krait-cache-scaling",
++		.of_match_table = krait_cache_match_table,
++	},
++};
++
++static int __init krait_cache_init(void)
++{
++	return platform_driver_register(&krait_cache_driver);
++}
++late_initcall(krait_cache_init);
++
++static void __exit krait_cache_exit(void)
++{
++	platform_driver_unregister(&krait_cache_driver);
++}
++module_exit(krait_cache_exit);
++
++MODULE_DESCRIPTION("Krait CPU Cache Scaling driver");
++MODULE_LICENSE("GPL v2");
+-- 
+2.27.0
+

@@ -1,0 +1,29 @@
+From 13eefe2492f3ddb4229c1047dcfc4f5df955d99c Mon Sep 17 00:00:00 2001
+From: Robert Marko <robimarko@gmail.com>
+Date: Thu, 11 Jun 2020 16:29:38 +0200
+Subject: [PATCH] nss-gmac: fix kernel panic
+
+This fixes the kernel panic that happens if of_get_mac_address does not return a valid pointer but returns IS_ERR pointer instead.
+So, lets check the return and only use that pointer if its not IS_ERR.
+
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+---
+ ipq806x/nss_gmac_ctrl.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/ipq806x/nss_gmac_ctrl.c b/ipq806x/nss_gmac_ctrl.c
+index af31a5f..ed159a5 100644
+--- a/ipq806x/nss_gmac_ctrl.c
++++ b/ipq806x/nss_gmac_ctrl.c
+@@ -1027,7 +1027,7 @@ static int32_t nss_gmac_of_get_pdata(struct device_node *np,
+ 		return -EFAULT;
+ 	}
+ 	maddr = (uint8_t *)of_get_mac_address(np);
+-	if (maddr)
++	if (!IS_ERR(maddr))
+ 		memcpy(gmaccfg->mac_addr, maddr, ETH_ALEN);
+ 
+ 	if (of_address_to_resource(np, 0, &memres_devtree) != 0)
+-- 
+2.26.2
+

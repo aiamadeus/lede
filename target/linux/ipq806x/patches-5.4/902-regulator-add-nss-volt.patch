@@ -1,0 +1,35 @@
+From c70758d96b22e4421a6afd824cb59e350c6a8040 Mon Sep 17 00:00:00 2001
+From: Robert Marko <robert.marko@sartura.hr>
+Date: Tue, 2 Jun 2020 22:09:15 +0200
+Subject: [PATCH] Regulator: Add NSS VOLT
+
+Signed-off-by: Robert Marko <robert.marko@sartura.hr>
+---
+ drivers/regulator/Kconfig  | 7 +++++++
+ drivers/regulator/Makefile | 1 +
+ 2 files changed, 8 insertions(+)
+
+--- a/drivers/regulator/Kconfig
++++ b/drivers/regulator/Kconfig
+@@ -1105,5 +1105,12 @@ config REGULATOR_WM8994
+ 	  This driver provides support for the voltage regulators on the
+ 	  WM8994 CODEC.
+ 
++config REGULATOR_NSS_VOLT
++	bool "Qualcomm IPQ806X NSS Voltage regulator"
++	depends on ARCH_QCOM || COMPILE_TEST
++	help
++	  This driver provides support for the Qualcomm IPQ806X NSS Voltage
++	  regulator.
++
+ endif
+ 
+--- a/drivers/regulator/Makefile
++++ b/drivers/regulator/Makefile
+@@ -138,5 +138,6 @@ obj-$(CONFIG_REGULATOR_WM831X) += wm831x
+ obj-$(CONFIG_REGULATOR_WM8350) += wm8350-regulator.o
+ obj-$(CONFIG_REGULATOR_WM8400) += wm8400-regulator.o
+ obj-$(CONFIG_REGULATOR_WM8994) += wm8994-regulator.o
++obj-$(CONFIG_REGULATOR_NSS_VOLT) += nss-volt-ipq806x.o
+ 
+ ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG

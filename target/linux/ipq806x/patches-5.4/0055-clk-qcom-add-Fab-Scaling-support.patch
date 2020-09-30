@@ -1,16 +1,61 @@
+From c82c991a9cd4a047d0544a9fb4186291eb40d60b Mon Sep 17 00:00:00 2001
+From: Ansuel Smith <ansuelsmth@gmail.com>
+Date: Sat, 22 Feb 2020 17:01:53 +0100
+Subject: [PATCH 3/6] clk: qcom: add Fab Scaling support
+
+Add Fab Scaling driver to scale APPS and DDR clk when the
+system is idle. Export a symbol to use the scaling data in
+a dedicated cpufreq driver.
+
+Signed-off-by: Ansuel Smith <ansuelsmth@gmail.com>
+---
+ drivers/clk/qcom/Kconfig       |  10 ++
+ drivers/clk/qcom/Makefile      |   1 +
+ drivers/clk/qcom/fab_scaling.c | 214 +++++++++++++++++++++++++++++++++
+ include/linux/fab_scaling.h    |  45 +++++++
+ 4 files changed, 270 insertions(+)
+ create mode 100644 drivers/clk/qcom/fab_scaling.c
+ create mode 100644 include/linux/fab_scaling.h
+
+diff --git a/drivers/clk/qcom/Kconfig b/drivers/clk/qcom/Kconfig
+index 15cdcdc9b3b8..c14e227d1dca 100644
+--- a/drivers/clk/qcom/Kconfig
++++ b/drivers/clk/qcom/Kconfig
+@@ -7,6 +7,16 @@ config QCOM_GDSC
+ 	bool
+ 	select PM_GENERIC_DOMAINS if PM
+ 
++config QCOM_FAB_SCALING
++	tristate "Fab Scaling Scaling Support"
++	depends on ARCH_QCOM || COMPILE_TEST
++	help
++	  Enable Support for the Fab Scaling present on Krait SoCs
++	  Say Y if you want the cpufreq driver to scale the APPS and
++	  DDR clk with the CPU clk. By default the clk are set to
++	  the max rate.
++
++
+ config QCOM_RPMCC
+ 	bool
+ 
+diff --git a/drivers/clk/qcom/Makefile b/drivers/clk/qcom/Makefile
+index 656a87e629d4..1f5fb0ed8abe 100644
 --- a/drivers/clk/qcom/Makefile
 +++ b/drivers/clk/qcom/Makefile
-@@ -15,6 +15,7 @@ clk-qcom-$(CONFIG_KRAIT_CLOCKS) += clk-k
+@@ -15,6 +15,7 @@ clk-qcom-$(CONFIG_KRAIT_CLOCKS) += clk-krait.o
  clk-qcom-y += clk-hfpll.o
  clk-qcom-y += reset.o
  clk-qcom-$(CONFIG_QCOM_GDSC) += gdsc.o
-+clk-qcom-y += fab_scaling.o
++clk-qcom-$(CONFIG_QCOM_FAB_SCALING) += fab_scaling.o
  
  # Keep alphabetically sorted by config
  obj-$(CONFIG_APQ_GCC_8084) += gcc-apq8084.o
+diff --git a/drivers/clk/qcom/fab_scaling.c b/drivers/clk/qcom/fab_scaling.c
+new file mode 100644
+index 000000000000..63d01ae3993f
 --- /dev/null
 +++ b/drivers/clk/qcom/fab_scaling.c
-@@ -0,0 +1,172 @@
+@@ -0,0 +1,214 @@
 +/*
 + * Copyright (c) 2015, The Linux Foundation. All rights reserved.
 + *
@@ -40,31 +85,49 @@
 +#include <linux/slab.h>
 +#include <linux/fab_scaling.h>
 +
++/* Fabrics is used by both CPU and NSS core
++ * Every consumer must be registred to be checked when scale_fabrics is called
++ */
++#define MAX_CONSUMER 2
++
 +struct qcom_fab_scaling_data {
 +	u32 fab_freq_high;
 +	u32 fab_freq_nominal;
-+	u32 cpu_freq_threshold;
 +	struct clk *apps_fab_clk;
 +	struct clk *ddr_fab_clk;
++	struct fab_scaling_info consumers[MAX_CONSUMER];
 +};
 +
-+static struct qcom_fab_scaling_data *drv_data;
++static struct qcom_fab_scaling_data drv_data;
 +
-+int scale_fabrics(unsigned long max_cpu_freq)
-+{	
-+	struct clk *apps_fab_clk = drv_data->apps_fab_clk,
-+	           *ddr_fab_clk = drv_data->ddr_fab_clk;
++int scale_fabrics(unsigned long max_freq, enum fab_consumers type)
++{
++	struct clk *apps_fab_clk = drv_data.apps_fab_clk,
++		   *ddr_fab_clk = drv_data.ddr_fab_clk;
 +	unsigned long target_freq, cur_freq;
-+	int ret;
++	unsigned int idle_freq = drv_data.consumers[type].idle_freq, old_max_clk;
++	int i, ret;
 +
 +	/* Skip fab scaling if the driver is not ready */
 +	if (!apps_fab_clk || !ddr_fab_clk)
 +		return 0;
 +
-+	if (max_cpu_freq > drv_data->cpu_freq_threshold)
-+		target_freq = drv_data->fab_freq_high;
-+	else
-+		target_freq = drv_data->fab_freq_nominal;
++	if (idle_freq == 0)
++		return 0;
++
++	if (max_freq != drv_data.consumers[type].old_max_clk)
++		drv_data.consumers[type].old_max_clk = max_freq;
++
++	target_freq = drv_data.fab_freq_nominal;
++
++	for (i = 0; i < MAX_CONSUMER; i++) {
++		idle_freq = drv_data.consumers[i].idle_freq;
++		old_max_clk = drv_data.consumers[i].old_max_clk;
++		if (idle_freq != 0 && old_max_clk > idle_freq) {
++			target_freq = drv_data.fab_freq_high;
++			break;
++		}
++	}
 +
 +	cur_freq = clk_get_rate(ddr_fab_clk);
 +
@@ -81,32 +144,50 @@
 +}
 +EXPORT_SYMBOL(scale_fabrics);
 +
++int fab_scaling_register(unsigned int idle_freq, enum fab_consumers type)
++{
++	if (idle_freq == 0)
++		return -1;
++
++	if (drv_data.consumers[type].idle_freq != 0) {
++		pr_err("Fab consumer already registered!\n");
++		return -1;
++	}
++
++	drv_data.consumers[type].idle_freq = idle_freq;
++
++	return 0;
++}
++EXPORT_SYMBOL(fab_scaling_register);
++
++int fab_scaling_unregister(enum fab_consumers type)
++{
++	drv_data.consumers[type].idle_freq = 0;
++	return 0;
++}
++EXPORT_SYMBOL(fab_scaling_unregister);
++
 +static int ipq806x_fab_scaling_probe(struct platform_device *pdev)
 +{
 +	struct device_node *np = pdev->dev.of_node;
 +	struct clk *apps_fab_clk, *ddr_fab_clk;
-+	int ret;
++	int ret = 0;
 +
 +	if (!np)
 +		return -ENODEV;
-+	
-+	drv_data = kzalloc(sizeof(*drv_data), GFP_KERNEL);
-+	if (!drv_data)
-+		return -ENOMEM;
 +
-+	if (of_property_read_u32(np, "fab_freq_high", &drv_data->fab_freq_high)) {
-+		pr_err("FABRICS turbo freq not found. Using defaults...\n");
-+		drv_data->fab_freq_high = 533000000;
++	if (of_property_read_u32(np, "fab_freq_high",
++				 &drv_data.fab_freq_high)) {
++		dev_err(&pdev->dev,
++			"FABRICS turbo freq not found. Using defaults...\n");
++		drv_data.fab_freq_high = 533000000;
 +	}
 +
-+	if (of_property_read_u32(np, "fab_freq_nominal", &drv_data->fab_freq_nominal)) {
-+		pr_err("FABRICS nominal freq not found. Using defaults...\n");
-+		drv_data->fab_freq_nominal = 400000000;
-+	}
-+
-+	if (of_property_read_u32(np, "cpu_freq_threshold", &drv_data->cpu_freq_threshold)) {
-+		pr_err("FABRICS cpu freq threshold not found. Using defaults...\n");
-+		drv_data->cpu_freq_threshold = 1000000000;
++	if (of_property_read_u32(np, "fab_freq_nominal",
++				 &drv_data.fab_freq_nominal)) {
++		dev_err(&pdev->dev,
++			"FABRICS nominal freq not found. Using defaults...\n");
++		drv_data.fab_freq_nominal = 400000000;
 +	}
 +
 +	apps_fab_clk = devm_clk_get(&pdev->dev, "apps-fab-clk");
@@ -117,15 +198,16 @@
 +		 * registered, we should try defering probe.
 +		 */
 +		if (ret != -EPROBE_DEFER) {
-+			pr_err("Failed to get APPS FABRIC clock: %d\n", ret);
++			dev_err(&pdev->dev,
++				"Failed to get APPS FABRIC clock: %d\n", ret);
 +			ret = -ENODEV;
 +		}
 +		goto err;
 +	}
 +
 +	clk_prepare_enable(apps_fab_clk);
-+	clk_set_rate(apps_fab_clk, drv_data->fab_freq_high);
-+	drv_data->apps_fab_clk = apps_fab_clk;
++	clk_set_rate(apps_fab_clk, drv_data.fab_freq_high);
++	drv_data.apps_fab_clk = apps_fab_clk;
 +
 +	ddr_fab_clk = devm_clk_get(&pdev->dev, "ddr-fab-clk");
 +	ret = PTR_ERR_OR_ZERO(ddr_fab_clk);
@@ -135,7 +217,8 @@
 +		 * registered, we should try defering probe.
 +		 */
 +		if (ret != -EPROBE_DEFER) {
-+			pr_err("Failed to get DDR FABRIC clock: %d\n", ret);
++			dev_err(&pdev->dev,
++				"Failed to get DDR FABRIC clock: %d\n", ret);
 +			ddr_fab_clk = NULL;
 +			ret = -ENODEV;
 +		}
@@ -143,24 +226,28 @@
 +	}
 +
 +	clk_prepare_enable(ddr_fab_clk);
-+	clk_set_rate(ddr_fab_clk, drv_data->fab_freq_high);
-+	drv_data->ddr_fab_clk = ddr_fab_clk;
++	clk_set_rate(ddr_fab_clk, drv_data.fab_freq_high);
++	drv_data.ddr_fab_clk = ddr_fab_clk;
 +
-+	return 0;
 +err:
-+	kfree(drv_data);
 +	return ret;
 +}
 +
 +static int ipq806x_fab_scaling_remove(struct platform_device *pdev)
 +{
-+	kfree(drv_data);
++	int i;
++
++	for (i = 0; i < MAX_CONSUMER; i++) {
++		drv_data.consumers[i].idle_freq = 0;
++		drv_data.consumers[i].old_max_clk = 0;
++	}
++
 +	return 0;
 +}
 +
 +static const struct of_device_id fab_scaling_ipq806x_match_table[] = {
 +	{ .compatible = "qcom,fab-scaling" },
-+	{ }
++	{}
 +};
 +
 +static struct platform_driver fab_scaling_ipq806x_driver = {
@@ -183,9 +270,12 @@
 +	platform_driver_unregister(&fab_scaling_ipq806x_driver);
 +}
 +module_exit(fab_scaling_ipq806x_exit);
+diff --git a/include/linux/fab_scaling.h b/include/linux/fab_scaling.h
+new file mode 100644
+index 000000000000..37d7f91d9ac3
 --- /dev/null
 +++ b/include/linux/fab_scaling.h
-@@ -0,0 +1,31 @@
+@@ -0,0 +1,45 @@
 +/*
 + * Copyright (c) 2015, The Linux Foundation. All rights reserved.
 + *
@@ -206,6 +296,16 @@
 +#ifndef __FAB_SCALING_H
 +#define __FAB_SCALING_H
 +
++enum fab_consumers {
++        CPU,
++        NSS
++};
++
++struct fab_scaling_info {
++	unsigned int old_max_clk;
++	unsigned int idle_freq;
++};
++
 +/**
 + * scale_fabrics - Scale DDR and APPS FABRICS
 + *
@@ -214,30 +314,13 @@
 + * it was registered.
 + *
 + */
-+int scale_fabrics(unsigned long max_cpu_freq);
++int scale_fabrics(unsigned long max_freq, enum fab_consumers type);
++
++int fab_scaling_register(unsigned int idle_freq, enum fab_consumers type);
++
++int fab_scaling_unregister(enum fab_consumers type);
 +
 +#endif
---- a/drivers/cpufreq/cpufreq-dt.c
-+++ b/drivers/cpufreq/cpufreq-dt.c
-@@ -20,6 +20,7 @@
- #include <linux/regulator/consumer.h>
- #include <linux/slab.h>
- #include <linux/thermal.h>
-+#include <linux/fab_scaling.h>
- 
- #include "cpufreq-dt.h"
- 
-@@ -111,6 +112,13 @@ static int set_target(struct cpufreq_pol
- 					}
- 				}
- 			}
-+
-+			/*
-+			 * Scale fabrics with max freq across all cores
-+			 */
-+			ret = scale_fabrics(target_freq);
-+			if (ret)
-+				goto exit;
- 		}
- 		priv->opp_freq = freq * 1000;
- 		arch_set_freq_scale(policy->related_cpus, freq,
+-- 
+2.27.0
+

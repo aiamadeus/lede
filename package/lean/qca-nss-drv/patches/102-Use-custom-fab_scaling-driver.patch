@@ -1,0 +1,64 @@
+From aea11fa160447a0a68c4be4cbb31fdc5747c1149 Mon Sep 17 00:00:00 2001
+From: Ansuel Smith <ansuelsmth@gmail.com>
+Date: Tue, 23 Jun 2020 15:07:33 +0200
+Subject: [PATCH] Use custom fab_scaling driver
+
+---
+ nss_hal/ipq806x/nss_hal_pvt.c | 11 +++++------
+ nss_hal/nss_hal.c             |  2 +-
+ 2 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/nss_hal/ipq806x/nss_hal_pvt.c b/nss_hal/ipq806x/nss_hal_pvt.c
+index 4eedc90..a810771 100644
+--- a/nss_hal/ipq806x/nss_hal_pvt.c
++++ b/nss_hal/ipq806x/nss_hal_pvt.c
+@@ -198,7 +198,7 @@ void nss_hal_scale_fabric(uint32_t work_frequency)
+ 	/*
+ 	 * PM framework
+ 	 */
+-	scale_fabrics();
++	scale_fabrics(work_frequency, NSS);
+ #endif
+ 	if ((nss_fab0_clk != NULL) && (nss_fab1_clk != NULL)) {
+ 		if (work_frequency >= NSS_FREQ_733) {
+@@ -955,7 +955,7 @@ static int __nss_hal_common_reset(struct platform_device *nss_dev)
+ static int __nss_hal_clock_configure(struct nss_ctx_instance *nss_ctx, struct platform_device *nss_dev, struct nss_platform_data *npd)
+ {
+ #if (NSS_FABRIC_SCALING_SUPPORT == 1)
+-	struct fab_scaling_info fab_data;
++	unsigned int fab_idle_freq;
+ #endif
+ 	int i, err;
+ 
+@@ -1043,12 +1043,11 @@ static int __nss_hal_clock_configure(struct nss_ctx_instance *nss_ctx, struct pl
+ clk_complete:
+ #if (NSS_FABRIC_SCALING_SUPPORT == 1)
+ 	if (npd->turbo_frequency) {
+-		fab_data.idle_freq = nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency;
++		fab_idle_freq = nss_runtime_samples.freq_scale[NSS_FREQ_MID_SCALE].frequency;
+ 	} else {
+-		fab_data.idle_freq = nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency;
++		fab_idle_freq = nss_runtime_samples.freq_scale[NSS_FREQ_HIGH_SCALE].frequency;
+ 	}
+-	fab_data.clk = nss_core0_clk;
+-	fab_scaling_register(&fab_data);
++	fab_scaling_register(fab_idle_freq, NSS);
+ #endif
+ 
+ 	/*
+diff --git a/nss_hal/nss_hal.c b/nss_hal/nss_hal.c
+index b3bd2b9..846288e 100644
+--- a/nss_hal/nss_hal.c
++++ b/nss_hal/nss_hal.c
+@@ -642,7 +642,7 @@ int nss_hal_remove(struct platform_device *nss_dev)
+ 	nss_top->data_plane_ops->data_plane_unregister();
+ 
+ #if (NSS_FABRIC_SCALING_SUPPORT == 1)
+-	fab_scaling_unregister(nss_core0_clk);
++	fab_scaling_unregister(NSS);
+ #endif
+ 
+ 	if (nss_dev->dev.of_node) {
+-- 
+2.27.0
+

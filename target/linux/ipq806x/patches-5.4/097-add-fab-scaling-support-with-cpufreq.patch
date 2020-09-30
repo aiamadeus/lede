@@ -1,0 +1,70 @@
+--- a/drivers/cpufreq/krait-cache.c
++++ b/drivers/cpufreq/krait-cache.c
+@@ -11,6 +11,10 @@
+ #include <linux/slab.h>
+ #include <linux/regulator/consumer.h>
+ 
++#ifdef CONFIG_QCOM_FAB_SCALING
++#include <linux/fab_scaling.h>
++#endif
++
+ struct krait_data {
+ 	struct clk *l2_clk; /* L2 clock */
+ 	unsigned int l2_volt_tol; /* L2 voltage tolerance */
+@@ -91,6 +95,15 @@ static int krait_cache_notifier(struct notifier_block *nb, unsigned long cmd,
+ 		ret = dev_pm_opp_set_rate(data->dev, *freq_l2tbl);
+ 		if (ret)
+ 			goto exit;
++
++#ifdef CONFIG_QCOM_FAB_SCALING
++		/*
++		 * Scale fabrics with max freq across all cores
++		 */
++		ret = scale_fabrics(target_freq, CPU);
++		if (ret)
++			goto exit;
++#endif
+ 	}
+ 
+ exit:
+@@ -109,6 +122,11 @@ static int krait_cache_probe(struct platform_device *pdev)
+ 	struct device *dev = &pdev->dev;
+ 	struct device_node *node = dev->of_node;
+ 
++#ifdef CONFIG_QCOM_FAB_SCALING
++	struct device_node *fab_np;
++	unsigned int fab_idle_freq;
++#endif
++
+ 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+ 	if (!data)
+ 		return -ENOMEM;
+@@ -181,6 +199,17 @@ static int krait_cache_probe(struct platform_device *pdev)
+ 
+ 	platform_set_drvdata(pdev, data);
+ 
++#ifdef CONFIG_QCOM_FAB_SCALING
++	fab_np = of_find_node_by_name(NULL, "fab-scaling");
++
++	if (!of_property_read_u32(fab_np, "cpu_fab_threshold",
++					&fab_idle_freq)) {
++		fab_scaling_register(fab_idle_freq, CPU);
++	}
++
++	of_node_put(fab_np);
++#endif
++
+ 	data->nb.notifier_call = krait_cache_notifier;
+ 	cpufreq_register_notifier(&data->nb, CPUFREQ_TRANSITION_NOTIFIER);
+ 
+@@ -197,6 +226,10 @@ static int krait_cache_remove(struct platform_device *pdev)
+ 
+ 	cpufreq_unregister_notifier(&data->nb, CPUFREQ_TRANSITION_NOTIFIER);
+ 
++#ifdef CONFIG_QCOM_FAB_SCALING
++	fab_scaling_unregister(CPU);
++#endif
++
+ 	return 0;
+ }
+ 

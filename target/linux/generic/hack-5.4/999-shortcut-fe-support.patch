@@ -1,12 +1,13 @@
 --- a/include/linux/if_bridge.h	2020-06-22 00:31:27.000000000 -0700
 +++ b/include/linux/if_bridge.h	2020-06-27 18:17:02.739634872 -0700
-@@ -51,7 +51,8 @@ struct br_ip_list {
+@@ -51,7 +51,9 @@ struct br_ip_list {
  #define BR_DEFAULT_AGEING_TIME	(300 * HZ)
  
  extern void brioctl_set(int (*ioctl_hook)(struct net *, unsigned int, void __user *));
 -
 +extern void br_dev_update_stats(struct net_device *dev,
 +				struct rtnl_link_stats64 *nlstats);
++
  #if IS_ENABLED(CONFIG_BRIDGE) && IS_ENABLED(CONFIG_BRIDGE_IGMP_SNOOPING)
  int br_multicast_list_adjacent(struct net_device *dev,
  			       struct list_head *br_ip_list);

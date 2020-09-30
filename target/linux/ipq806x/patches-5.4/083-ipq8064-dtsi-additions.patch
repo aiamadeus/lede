@@ -26,7 +26,7 @@
  		};
  
  		cpu1: cpu@1 {
-@@ -38,11 +50,458 @@
+@@ -38,11 +50,467 @@
  			next-level-cache = <&L2>;
  			qcom,acc = <&acc1>;
  			qcom,saw = <&saw1>;
@@ -48,13 +48,6 @@
 +			qcom,saw = <&saw_l2>;
 +		};
 +
-+		qcom,l2 {
-+			qcom,l2-rates = <384000000 1000000000 1200000000>;
-+			qcom,l2-cpufreq = <384000000 600000000 1200000000>;
-+			qcom,l2-volt = <1100000 1100000 1150000>;
-+			qcom,l2-supply = <&smb208_s1a>;
-+		};
-+
 +		idle-states {
 +			CPU_SPC: spc {
 +				compatible = "qcom,idle-state-spc", "arm,idle-state";
@@ -65,6 +58,22 @@
 +			};
 +		};
 +	};
++
++	qcom-krait-cache {
++			compatible = "qcom,krait-cache";
++			clocks = <&kraitcc 4>;
++			clock-names = "l2";
++			voltage-tolerance = <5>;
++			l2-cpufreq = <384000 600000 1200000>;
++			l2-supply = <&smb208_s1a>;
++
++			operating-points = <
++				/* kHz    uV */
++				384000  1100000
++				1000000  1100000
++				1200000  1150000
++			>;
++		};
 +
 +	opp_table0: opp_table0 {
 +		compatible = "operating-points-v2-kryo-cpu";
@@ -495,7 +504,7 @@
 +		clock-names = "apps-fab-clk", "ddr-fab-clk";
 +		fab_freq_high = <533000000>;
 +		fab_freq_nominal = <400000000>;
-+		cpu_freq_threshold = <1000000000>;
++		cpu_fab_threshold = <1000000000>;
 +	};
 +
  	firmware {
