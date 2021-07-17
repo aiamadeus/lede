@@ -29,7 +29,7 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 +		mdio: mdio@90000 {
 +			#address-cells = <1>;
 +			#size-cells = <0>;
-+			compatible = "qcom,ipq4019-mdio";
++			compatible = "qcom,ipq40xx-mdio";
 +			reg = <0x90000 0x64>;
 +			status = "disabled";
 +

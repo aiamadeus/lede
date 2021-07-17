@@ -1,0 +1,259 @@
+--- a/edma.c
++++ b/edma.c
+@@ -559,13 +559,13 @@ static int edma_rx_complete_paged(struct sk_buff *skb, u16 num_rfds,
+ 		skb_fill_page_desc(skb, 0, skb_frag_page(frag),
+ 				  16, length);
+ 	} else {
+-		frag->size -= 16;
+-		skb->data_len = frag->size;
++		skb_frag_size_sub(frag, 16);
++		skb->data_len = skb_frag_size(frag);
+ 		skb->truesize += edma_cinfo->rx_page_buffer_len;
+-		size_remaining = length - frag->size;
++		size_remaining = length - skb_frag_size(frag);
+ 
+ 		skb_fill_page_desc(skb, 0, skb_frag_page(frag),
+-				16, frag->size);
++				16, skb_frag_size(frag));
+ 
+ 		/* clean-up all related sw_descs */
+ 		for (i = 1; i < num_rfds; i++) {
+@@ -576,18 +576,18 @@ static int edma_rx_complete_paged(struct sk_buff *skb, u16 num_rfds,
+ 				      sw_desc->length, DMA_FROM_DEVICE);
+ 
+ 			if (size_remaining < edma_cinfo->rx_page_buffer_len)
+-				frag->size = size_remaining;
++				skb_frag_size_set(frag, size_remaining);
+ 
+ 			skb_fill_page_desc(skb, i, skb_frag_page(frag),
+-					  0, frag->size);
++					  0, skb_frag_size(frag));
+ 
+ 			/* We used frag pages from skb_temp in skb */
+ 			skb_shinfo(skb_temp)->nr_frags = 0;
+ 			dev_kfree_skb_any(skb_temp);
+ 
+-			skb->data_len += frag->size;
++			skb->data_len += skb_frag_size(frag);
+ 			skb->truesize += edma_cinfo->rx_page_buffer_len;
+-			size_remaining -= frag->size;
++			size_remaining -= skb_frag_size(frag);
+ 
+ 			/* Increment SW index */
+ 			sw_next_to_clean = (sw_next_to_clean + 1) & (erdr->count - 1);
+@@ -967,9 +967,7 @@ static void edma_initialise_rfs_flow_table(struct edma_adapter *adapter)
+ 	adapter->rfs.hashtoclean = 0;
+ 
+ 	/* Add timer to get periodic RFS updates from OS */
+-	init_timer(&adapter->rfs.expire_rfs);
+-	adapter->rfs.expire_rfs.function = edma_flow_may_expire;
+-	adapter->rfs.expire_rfs.data = (unsigned long)adapter;
++	timer_setup(&adapter->rfs.expire_rfs, edma_flow_may_expire, 0);
+ 	mod_timer(&adapter->rfs.expire_rfs, jiffies + HZ/4);
+ }
+ 
+@@ -1581,17 +1579,14 @@ void edma_adjust_link(struct net_device *netdev)
+ 	}
+ }
+ 
+-/* edma_get_stats64()
++/* edma_get_stats()
+  *	Statistics api used to retreive the tx/rx statistics
+  */
+-struct rtnl_link_stats64 *edma_get_stats64(struct net_device *netdev,
+-				     struct rtnl_link_stats64 *stats)
++struct net_device_stats *edma_get_stats(struct net_device *netdev)
+ {
+ 	struct edma_adapter *adapter = netdev_priv(netdev);
+ 
+-	memcpy(stats, &adapter->stats, sizeof(*stats));
+-
+-	return stats;
++	return &adapter->stats;
+ }
+ 
+ /* edma_xmit()
+@@ -1718,9 +1713,11 @@ netdev_okay:
+  * edma_flow_may_expire()
+  *	Timer function called periodically to delete the node
+  */
+-void edma_flow_may_expire(unsigned long data)
++void edma_flow_may_expire(struct timer_list *t)
+ {
+-	struct edma_adapter *adapter = (struct edma_adapter *)data;
++	struct edma_rfs_flow_table *table = from_timer(table, t, expire_rfs);
++	struct edma_adapter *adapter =
++		container_of(table, typeof(*adapter), rfs);
+ 	int j;
+ 
+ 	spin_lock_bh(&adapter->rfs.rfs_ftab_lock);
+@@ -1735,8 +1732,9 @@ void edma_flow_may_expire(unsigned long data)
+ 			res = rps_may_expire_flow(adapter->netdev, n->rq_id,
+ 					n->flow_id, n->filter_id);
+ 			if (res) {
+-				res = edma_delete_rfs_filter(adapter, n);
+-				if (res < 0)
++				int ret;
++				ret = edma_delete_rfs_filter(adapter, n);
++				if (ret < 0)
+ 					dev_dbg(&adapter->netdev->dev,
+ 							"RFS entry %d not allowed to be flushed by Switch",
+ 							n->flow_id);
+--- a/edma.h
++++ b/edma.h
+@@ -388,6 +388,7 @@ struct edma_common_info {
+ 	struct edma_per_cpu_queues_info edma_percpu_info[CONFIG_NR_CPUS]; /* per cpu information */
+ 	spinlock_t stats_lock; /* protect edma stats area for updation */
+ 	bool is_first_open_done; /* flag to track if the open has been called first time */
++	struct timer_list edma_stats_timer;
+ };
+ 
+ /* transimit packet descriptor (tpd) ring */
+@@ -443,7 +444,7 @@ struct edma_adapter {
+ 	struct edma_common_info *edma_cinfo; /* edma common info */
+ 	struct phy_device *phydev; /* Phy device */
+ 	struct edma_rfs_flow_table rfs; /* edma rfs flow table */
+-	struct rtnl_link_stats64 stats; /* netdev statistics */
++	struct net_device_stats stats; /* netdev statistics */
+ #ifdef CONFIG_RFS_ACCEL
+ 	set_rfs_filter_callback_t set_rfs_rule;
+ #endif
+@@ -493,8 +494,7 @@ void edma_free_irqs(struct edma_adapter *adapter);
+ irqreturn_t edma_interrupt(int irq, void *dev);
+ void edma_write_reg(u16 reg_addr, u32 reg_value);
+ void edma_read_reg(u16 reg_addr, volatile u32 *reg_value);
+-struct rtnl_link_stats64 *edma_get_stats64(struct net_device *dev,
+-				     struct rtnl_link_stats64 *stats);
++struct net_device_stats *edma_get_stats(struct net_device *netdev);
+ int edma_set_mac_addr(struct net_device *netdev, void *p);
+ int edma_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
+ 		u16 rxq, u32 flow_id);
+@@ -502,7 +502,7 @@ int edma_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
+ int edma_register_rfs_filter(struct net_device *netdev,
+ 		set_rfs_filter_callback_t set_filter);
+ #endif
+-void edma_flow_may_expire(unsigned long data);
++void edma_flow_may_expire(struct timer_list *t);
+ void edma_set_ethtool_ops(struct net_device *netdev);
+ int edma_change_mtu(struct net_device *netdev, int new_mtu);
+ void edma_set_stp_rstp(bool tag);
+--- a/edma_axi.c
++++ b/edma_axi.c
+@@ -293,13 +293,14 @@ void edma_read_append_stats(struct edma_common_info *edma_cinfo)
+ 	spin_unlock_bh(&edma_cinfo->stats_lock);
+ }
+ 
+-static void edma_statistics_timer(unsigned long data)
++static void edma_statistics_timer(struct timer_list *t)
+ {
+-	struct edma_common_info *edma_cinfo = (struct edma_common_info *)data;
++	struct edma_common_info *edma_cinfo =
++		from_timer(edma_cinfo, t, edma_stats_timer);
+ 
+ 	edma_read_append_stats(edma_cinfo);
+ 
+-	mod_timer(&edma_stats_timer, jiffies + 1*HZ);
++	mod_timer(&edma_cinfo->edma_stats_timer, jiffies + 1*HZ);
+ }
+ 
+ static int edma_enable_stp_rstp(struct ctl_table *table, int write,
+@@ -663,12 +664,14 @@ static int edma_change_group1_bmp(struct ctl_table *table, int write,
+ 		edma_phydev[port_bit] = adapter->phydev;
+ 		phy_dev_state[port_bit] = 1;
+ 		set_bit(port_bit, (long unsigned int *)&edma_link_detect_bmp);
+-		adapter->phydev->advertising |=
+-			(ADVERTISED_Pause |
+-			ADVERTISED_Asym_Pause);
+-		adapter->phydev->supported |=
+-			(SUPPORTED_Pause |
+-			SUPPORTED_Asym_Pause);
++		linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT,
++					adapter->phydev->advertising);
++		linkmode_set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
++					adapter->phydev->advertising);
++		linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT,
++					adapter->phydev->supported);
++		linkmode_set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
++					adapter->phydev->supported);
+ 		phy_start(adapter->phydev);
+ 		phy_start_aneg(adapter->phydev);
+ 	}
+@@ -847,12 +850,14 @@ static int edma_change_group2_bmp(struct ctl_table *table, int write,
+ 		edma_phydev[port_bit] = adapter->phydev;
+ 		phy_dev_state[port_bit] = 1;
+ 		set_bit(port_bit, (long unsigned int *)&edma_link_detect_bmp);
+-		adapter->phydev->advertising |=
+-			(ADVERTISED_Pause |
+-			ADVERTISED_Asym_Pause);
+-		adapter->phydev->supported |=
+-			(SUPPORTED_Pause |
+-			SUPPORTED_Asym_Pause);
++		linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT,
++					adapter->phydev->advertising);
++		linkmode_set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
++					adapter->phydev->advertising);
++		linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT,
++					adapter->phydev->supported);
++		linkmode_set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
++					adapter->phydev->supported);
+ 		phy_start(adapter->phydev);
+ 		phy_start_aneg(adapter->phydev);
+ 	}
+@@ -913,6 +918,7 @@ static int edma_disable_rss_func(struct ctl_table *table, int write,
+ 	switch (edma_disable_rss) {
+ 	case EDMA_DISABLE_RSS_ENABLE_ACL:
+ 		edma_cinfo->rx_low_priority = 3;
++		/* fall through */
+ 	case EDMA_RSS_DISABLE:
+ 		hw->rss_type = 0;
+ 		edma_write_reg(EDMA_REG_RSS_TYPE, hw->rss_type);
+@@ -1270,13 +1276,12 @@ static const struct net_device_ops edma_axi_netdev_ops = {
+ 	.ndo_stop		= edma_close,
+ 	.ndo_start_xmit		= edma_xmit,
+ 	.ndo_set_mac_address	= edma_set_mac_addr,
+-	.ndo_select_queue	= edma_select_xps_queue,
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	= edma_rx_flow_steer,
+ 	.ndo_register_rfs_filter = edma_register_rfs_filter,
+ 	.ndo_get_default_vlan_tag = edma_get_default_vlan_tag,
+ #endif
+-	.ndo_get_stats64	= edma_get_stats64,
++	.ndo_get_stats	= edma_get_stats,
+ 	.ndo_change_mtu		= edma_change_mtu,
+ };
+ 
+@@ -1826,12 +1831,14 @@ static int edma_axi_probe(struct platform_device *pdev)
+ 				err = -EIO;
+ 				goto err_phy_attach_fail;
+ 			} else {
+-				adapter[i]->phydev->advertising |=
+-					ADVERTISED_Pause |
+-					ADVERTISED_Asym_Pause;
+-				adapter[i]->phydev->supported |=
+-					SUPPORTED_Pause |
+-					SUPPORTED_Asym_Pause;
++				linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT,
++						 adapter[i]->phydev->advertising);
++				linkmode_set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
++						 adapter[i]->phydev->advertising);
++				linkmode_set_bit(ETHTOOL_LINK_MODE_Pause_BIT,
++						 adapter[i]->phydev->supported);
++				linkmode_set_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
++						 adapter[i]->phydev->supported);
+ 				portid_bmp = adapter[i]->dp_bitmap >> 1;
+ 				port_id = ffs(portid_bmp);
+ 				edma_phydev[port_id - 1] = adapter[i]->phydev;
+@@ -1867,11 +1874,8 @@ static int edma_axi_probe(struct platform_device *pdev)
+ 
+ 	spin_lock_init(&edma_cinfo->stats_lock);
+ 
+-	init_timer(&edma_stats_timer);
+-	edma_stats_timer.expires = jiffies + 1*HZ;
+-	edma_stats_timer.data = (unsigned long)edma_cinfo;
+-	edma_stats_timer.function = edma_statistics_timer; /* timer handler */
+-	add_timer(&edma_stats_timer);
++	timer_setup(&edma_cinfo->edma_stats_timer, edma_statistics_timer, 0);
++	mod_timer(&edma_cinfo->edma_stats_timer, jiffies + 1*HZ);
+ 
+ 	/*
+ 	 * Initialize dscp2ac mapping table

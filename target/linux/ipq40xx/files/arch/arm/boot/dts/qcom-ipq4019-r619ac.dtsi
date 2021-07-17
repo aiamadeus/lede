@@ -75,6 +75,46 @@
 
 		ess-switch@c000000 {
 			status = "okay";
+
+			led_source@0 {
+				led = <0x3>;
+				source = <0x1>;
+				mode = "normal";
+				speed = "all";
+				freq = "auto";
+			};
+
+			led_source@1 {
+				led = <0x4>;
+				source = <0x4>;
+				mode = "normal";
+				speed = "all";
+				freq = "auto";
+			};
+
+			led_source@2 {
+				led = <0x5>;
+				source = <0x7>;
+				mode = "normal";
+				speed = "all";
+				freq = "auto";
+			};
+
+			led_source@3 {
+				led = <0x6>;
+				source = <0xa>;
+				mode = "normal";
+				speed = "all";
+				freq = "auto";
+			};
+
+			led_source@4 {
+				led = <0x7>;
+				source = <0xd>;
+				mode = "normal";
+				speed = "all";
+				freq = "auto";
+			};
 		};
 
 		edma@c080000 {
@@ -322,36 +362,6 @@
 			output-high;
 		};
 	};
-};
-
-&ethphy0 {
-	qcom,single-led-1000;
-	qcom,single-led-100;
-	qcom,single-led-10;
-};
-
-&ethphy1 {
-	qcom,single-led-1000;
-	qcom,single-led-100;
-	qcom,single-led-10;
-};
-
-&ethphy2 {
-	qcom,single-led-1000;
-	qcom,single-led-100;
-	qcom,single-led-10;
-};
-
-&ethphy3 {
-	qcom,single-led-1000;
-	qcom,single-led-100;
-	qcom,single-led-10;
-};
-
-&ethphy4 {
-	qcom,single-led-1000;
-	qcom,single-led-100;
-	qcom,single-led-10;
 };
 
 &usb3_ss_phy {

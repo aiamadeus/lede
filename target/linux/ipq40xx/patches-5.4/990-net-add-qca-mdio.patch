@@ -1,0 +1,22 @@
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -602,3 +602,9 @@ endif # PHYLIB
+ config MICREL_KS8995MA
+ 	tristate "Micrel KS8995MA 5-ports 10/100 managed Ethernet switch"
+ 	depends on SPI
++
++config MDIO_QCA
++	tristate "Qualcomm Atheros ipq MDIO interface"
++	help
++	  This driver supports the MDIO interface found in Qualcomm
++	  Atheros ipq Soc chip.
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -57,6 +57,7 @@ obj-$(CONFIG_MDIO_OCTEON)	+= mdio-octeon.o
+ obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
+ obj-$(CONFIG_MDIO_THUNDER)	+= mdio-thunder.o
+ obj-$(CONFIG_MDIO_XGENE)	+= mdio-xgene.o
++obj-$(CONFIG_MDIO_QCA)		+= mdio-qca.o
+ 
+ obj-$(CONFIG_SFP)		+= sfp.o
+ sfp-obj-$(CONFIG_SFP)		+= sfp-bus.o

@@ -1873,7 +1873,7 @@ static int ar40xx_probe(struct platform_device *pdev)
 	/* register switch */
 	swdev = &priv->dev;
 
-	mdio_node = of_find_compatible_node(NULL, NULL, "qcom,ipq4019-mdio");
+	mdio_node = of_find_compatible_node(NULL, NULL, "qcom,ipq40xx-mdio");
 	if (!mdio_node) {
 		dev_err(&pdev->dev, "Probe failed - Cannot find mdio node by phandle!\n");
 		ret = -ENODEV;

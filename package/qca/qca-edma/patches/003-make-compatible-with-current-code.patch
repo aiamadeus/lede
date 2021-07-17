@@ -1,0 +1,53 @@
+--- a/edma_axi.c
++++ b/edma_axi.c
+@@ -1319,7 +1319,7 @@ static int edma_axi_probe(struct platform_device *pdev)
+ 
+ 	edma_cinfo->pdev = pdev;
+ 
+-	of_property_read_u32(np, "qcom,num-gmac", &edma_cinfo->num_gmac);
++	of_property_read_u32(np, "qcom,num_gmac", &edma_cinfo->num_gmac);
+ 	if (edma_cinfo->num_gmac > EDMA_MAX_PORTID_SUPPORTED) {
+ 		pr_err("Invalid DTSI Entry for qcom,num_gmac\n");
+ 		err = -EINVAL;
+@@ -1393,7 +1393,7 @@ static int edma_axi_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	of_property_read_u32(np, "qcom,page-mode", &edma_cinfo->page_mode);
+-	of_property_read_u32(np, "qcom,rx-head-buf-size",
++	of_property_read_u32(np, "qcom,rx_head_buf_size",
+ 			     &hw->rx_head_buff_size);
+ 
+ 	if (overwrite_mode) {
+@@ -1643,7 +1643,7 @@ static int edma_axi_probe(struct platform_device *pdev)
+ 			break;
+ 
+ 		/* Populate port-id to netdev lookup table */
+-		vlan_tag = of_get_property(pnp, "vlan-tag", &len);
++		vlan_tag = of_get_property(pnp, "vlan_tag", &len);
+ 		if (!vlan_tag) {
+ 			pr_err("Vlan tag parsing Failed.\n");
+ 			goto err_rmap_alloc_fail;
+@@ -1665,18 +1665,18 @@ static int edma_axi_probe(struct platform_device *pdev)
+ 			portid_bmp &= ~(1 << (port_bit - 1));
+ 		}
+ 
+-		if (of_property_read_u32(pnp, "qcom,poll-required-dynamic",
++		if (of_property_read_u32(pnp, "qcom,poll_required_dynamic",
+ 					  &adapter[idx]->poll_required_dynamic))
+ 			adapter[idx]->poll_required_dynamic = 0;
+ 
+-		if (!of_property_read_u32(pnp, "qcom,poll-required",
++		if (!of_property_read_u32(pnp, "qcom,poll_required",
+ 					  &adapter[idx]->poll_required)) {
+ 			if (adapter[idx]->poll_required) {
+-				of_property_read_u32(pnp, "qcom,phy-mdio-addr",
++				of_property_read_u32(pnp, "qcom,phy_mdio_addr",
+ 						     &adapter[idx]->phy_mdio_addr);
+-				of_property_read_u32(pnp, "qcom,forced-speed",
++				of_property_read_u32(pnp, "qcom,forced_speed",
+ 						     &adapter[idx]->forced_speed);
+-				of_property_read_u32(pnp, "qcom,forced-duplex",
++				of_property_read_u32(pnp, "qcom,forced_duplex",
+ 						     &adapter[idx]->forced_duplex);
+ 
+ 				/* create a phyid using MDIO bus id

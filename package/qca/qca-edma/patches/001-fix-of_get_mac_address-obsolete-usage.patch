@@ -1,0 +1,33 @@
+From f521ef5ff3110018fb8b4e6827e2a5d7f32c41f0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Petr=20=C5=A0tetiar?= <ynezz@true.cz>
+Date: Mon, 16 Mar 2020 09:43:00 +0100
+Subject: [PATCH] ipq40xx: 5.4: fix of_get_mac_address obsolete usage OOPs
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+of_get_mac_address returns valid pointer or ERR_PTR since 5.2 via commit
+d01f449c008a ("of_net: add NVMEM support to of_get_mac_address") so the
+patch fixes following OOPs on nbg6617.
+
+Where using mac_addr=0xffffffed (-ENODEV) as source address in memcpy()
+is causing the OOPs.
+
+Acked-by: John Crispin <john@phrozen.org>
+Signed-off-by: Petr Štetiar <ynezz@true.cz>
+---
+ edma_axi.c  | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/edma_axi.c b/edma_axi.c
+--- a/edma_axi.c
++++ b/edma_axi.c
+@@ -1538,7 +1538,7 @@ static int edma_axi_probe(struct platform_device *pdev)
+ 		}
+ 
+ 		mac_addr = of_get_mac_address(pnp);
+-		if (mac_addr)
++		if (!IS_ERR(mac_addr))
+ 			memcpy(edma_netdev[idx_mac]->dev_addr, mac_addr, ETH_ALEN);
+ 
+ 		idx_mac++;
