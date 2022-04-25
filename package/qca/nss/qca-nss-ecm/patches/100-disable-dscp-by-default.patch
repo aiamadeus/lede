@@ -1,0 +1,10 @@
+--- a/Makefile
++++ b/Makefile
+@@ -269,7 +269,6 @@ ccflags-$(ECM_CLASSIFIER_NL_ENABLE) += -DECM_CLASSIFIER_NL_ENABLE
+ # #############################################################################
+ # Define ECM_CLASSIFIER_DSCP_ENABLE=y in order to enable DSCP classifier.
+ # #############################################################################
+-ECM_CLASSIFIER_DSCP_ENABLE=y
+ ecm-$(ECM_CLASSIFIER_DSCP_ENABLE) += ecm_classifier_dscp.o
+ ccflags-$(ECM_CLASSIFIER_DSCP_ENABLE) += -DECM_CLASSIFIER_DSCP_ENABLE
+ ccflags-$(ECM_CLASSIFIER_DSCP_IGS) += -DECM_CLASSIFIER_DSCP_IGS
