@@ -20,12 +20,13 @@ mediatek_setup_interfaces()
 	h3c,magic-nx30-pro)
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" eth1
 		;;
+	jcg,q30-pro|\
+	qihoo,360t7)
+		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" wan
+		;;
 	mediatek,mt7986a-rfb|\
 	mediatek,mt7986b-rfb)
 		ucidef_set_interfaces_lan_wan "lan0 lan1 lan2 lan3" eth1
-		;;
-	qihoo,360t7)
-		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" wan
 		;;
 	tplink,tl-xdr4288|\
 	tplink,tl-xdr6088)
