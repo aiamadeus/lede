@@ -178,37 +178,6 @@ define Device/cetron_ct3003-mod
 endef
 TARGET_DEVICES += cetron_ct3003-mod
 
-define Device/glinet_gl-mt3000
-  DEVICE_VENDOR := GL.iNet
-  DEVICE_MODEL := GL-MT3000
-  DEVICE_DTS := mt7981b-glinet-gl-mt3000
-  DEVICE_DTS_DIR := ../dts
-  DEVICE_PACKAGES := kmod-mt7981-firmware mt7981-wo-firmware kmod-hwmon-pwmfan kmod-usb3
-  UBINIZE_OPTS := -E 5
-  BLOCKSIZE := 128k
-  PAGESIZE := 2048
-  KERNEL_IN_UBI := 1
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-endef
-TARGET_DEVICES += glinet_gl-mt3000
-
-define Device/glinet_gl-mt6000
-  DEVICE_VENDOR := GL.iNet
-  DEVICE_MODEL := GL-MT6000
-  DEVICE_DTS := mt7986a-glinet-gl-mt6000
-  DEVICE_DTS_DIR := ../dts
-  DEVICE_PACKAGES := kmod-usb2 kmod-usb3 kmod-mt7986-firmware mt7986-wo-firmware e2fsprogs f2fsck mkf2fs
-  UBINIZE_OPTS := -E 5
-  BLOCKSIZE := 128k
-  PAGESIZE := 2048
-  IMAGES := sysupgrade.bin
-  IMAGE/sysupgrade.bin := sysupgrade-tar | append-gl-metadata
-  ARTIFACTS := preloader.bin bl31-uboot.fip
-  ARTIFACT/preloader.bin := bl2 emmc-ddr4
-  ARTIFACT/bl31-uboot.fip := bl31-uboot glinet_gl-mt6000
-endef
-TARGET_DEVICES += glinet_gl-mt6000
-
 define Device/h3c_magic-nx30-pro
   DEVICE_VENDOR := H3C
   DEVICE_MODEL := Magic NX30 Pro

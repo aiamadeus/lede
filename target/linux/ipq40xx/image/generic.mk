@@ -535,64 +535,6 @@ define Device/ezviz_cs-w3-wd1200g-eup
 endef
 TARGET_DEVICES += ezviz_cs-w3-wd1200g-eup
 
-define Device/glinet_gl-ap1300
-	$(call Device/FitImage)
-	$(call Device/UbiFit)
-	DEVICE_VENDOR := GL.iNet
-	DEVICE_MODEL := GL-AP1300
-	SOC := qcom-ipq4018
-	DEVICE_DTS_CONFIG := config@ap.dk01.1-c2
-	BLOCKSIZE := 128k
-	PAGESIZE := 2048
-	IMAGE_SIZE := 131072k
-	KERNEL_INSTALL := 1
-	DEVICE_PACKAGES := kmod-usb-net-qmi-wwan kmod-usb-serial-option uqmi
-endef
-TARGET_DEVICES += glinet_gl-ap1300
-
-define Device/glinet_gl-b1300
-	$(call Device/FitzImage)
-	DEVICE_VENDOR := GL.iNet
-	DEVICE_MODEL := GL-B1300
-	BOARD_NAME := gl-b1300
-	SOC := qcom-ipq4029
-	KERNEL_SIZE := 4096k
-	IMAGE_SIZE := 26624k
-	IMAGE/sysupgrade.bin := append-kernel |append-rootfs | pad-rootfs | append-metadata
-endef
-TARGET_DEVICES += glinet_gl-b1300
-
-define Device/glinet_gl-b2200
-	$(call Device/FitzImage)
-	DEVICE_VENDOR := GL.iNet
-	DEVICE_MODEL := GL-B2200
-	SOC := qcom-ipq4019
-	DEVICE_DTS_CONFIG := config@ap.dk04.1-c3
-	KERNEL_INITRAMFS_SUFFIX := -recovery.itb
-	IMAGES := emmc.img.gz sysupgrade.bin
-	IMAGE/emmc.img.gz := qsdk-ipq-app-gpt |\
-		pad-to 1024k | append-kernel |\
-		pad-to 33792k | append-rootfs |\
-		append-metadata | gzip
-	IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
-	DEVICE_PACKAGES := ath10k-firmware-qca9888-ct \
-		kmod-fs-ext4 kmod-mmc kmod-spi-dev mkf2fs e2fsprogs kmod-fs-f2fs
-endef
-TARGET_DEVICES += glinet_gl-b2200
-
-define Device/glinet_gl-s1300
-	$(call Device/FitzImage)
-	DEVICE_VENDOR := GL.iNet
-	DEVICE_MODEL := GL-S1300
-	SOC := qcom-ipq4029
-	KERNEL_SIZE := 4096k
-	IMAGE_SIZE := 26624k
-	IMAGES := sysupgrade.bin
-	IMAGE/sysupgrade.bin := append-kernel | append-rootfs | pad-rootfs | append-metadata
-	DEVICE_PACKAGES := kmod-fs-ext4 kmod-mmc kmod-spi-dev
-endef
-TARGET_DEVICES += glinet_gl-s1300
-
 define Device/linksys_ea6350v3
 	# The Linksys EA6350v3 has a uboot bootloader that does not
 	# support either booting lzma kernel images nor booting UBI
