@@ -35,6 +35,12 @@ define Build/rkbin/Target
   endef
 endef
 
+define rkbin/rk3308
+  DEPENDS:=@TARGET_rockchip_armv8
+  ATF:=rk33/rk3308_bl31_v2.26.elf
+  TPL:=rk33/rk3308_ddr_589MHz_uart2_m1_v2.09.bin
+endef
+
 define rkbin/rk3328
   DEPENDS:=@TARGET_rockchip_armv8
   ATF:=rk33/rk322xh_bl31_v1.49.elf
@@ -80,6 +86,7 @@ define rkbin/rk3588
 endef
 
 VARIANTS:= \
+	rk3308 \
 	rk3328 \
 	rk3399 \
 	rk3528 \

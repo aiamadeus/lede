@@ -318,6 +318,15 @@ define Device/friendlyarm_nanopi-r76s
 endef
 TARGET_DEVICES += friendlyarm_nanopi-r76s
 
+define Device/friendlyarm_nanopi-zero2
+  DEVICE_VENDOR := FriendlyARM
+  DEVICE_MODEL := NanoPi Zero2
+  SOC := rk3528
+  UBOOT_DEVICE_NAME := nanopi-zero2-rk3528
+  IMAGE/sysupgrade.img.gz := boot-common | boot-script | pine64-img | gzip | append-metadata
+endef
+TARGET_DEVICES += friendlyarm_nanopi-zero2
+
 define Device/firefly_station-p2
   DEVICE_VENDOR := Firefly
   DEVICE_MODEL := Station P2
@@ -437,6 +446,16 @@ define Device/pine64_rockpro64
 endef
 TARGET_DEVICES += pine64_rockpro64
 
+define Device/radxa_cm3-io
+  DEVICE_VENDOR := Radxa
+  DEVICE_MODEL := CM3 IO
+  SOC := rk3566
+  DEVICE_DTS := rk3566-radxa-cm3-io
+  UBOOT_DEVICE_NAME := radxa-cm3-io-rk3566
+  IMAGE/sysupgrade.img.gz := boot-common | boot-script | pine64-img | gzip | append-metadata
+endef
+TARGET_DEVICES += radxa_cm3-io
+
 define Device/radxa_e20c
   DEVICE_VENDOR := Radxa
   DEVICE_MODEL := E20C
@@ -552,6 +571,36 @@ define Device/radxa_rock-pi-4a
 endef
 TARGET_DEVICES += radxa_rock-pi-4a
 
+define Device/radxa_rock-pi-e
+  DEVICE_VENDOR := Radxa
+  DEVICE_MODEL := ROCK Pi E
+  SOC := rk3328
+  UBOOT_DEVICE_NAME := rock-pi-e-rk3328
+  IMAGE/sysupgrade.img.gz := boot-common | boot-script | pine64-bin | gzip | append-metadata
+endef
+TARGET_DEVICES += radxa_rock-pi-e
+
+define Device/radxa_rock-pi-e-v3
+  DEVICE_VENDOR := Radxa
+  DEVICE_MODEL := ROCK Pi E v3.0
+  SOC := rk3328
+  DEVICE_DTS := rk3328-rock-pi-e
+  UBOOT_DEVICE_NAME := rock-pi-e-v3-rk3328
+  DEVICE_PACKAGES := kmod-rtw88-8723du wpad
+  IMAGE/sysupgrade.img.gz := boot-common | boot-script | pine64-bin | gzip | append-metadata
+endef
+TARGET_DEVICES += radxa_rock-pi-e-v3
+
+define Device/radxa_rock-pi-s
+  DEVICE_VENDOR := Radxa
+  DEVICE_MODEL := ROCK Pi S
+  SOC := rk3308
+  SUPPORTED_DEVICES := radxa,rockpis
+  UBOOT_DEVICE_NAME := rock-pi-s-rk3308
+  DEVICE_PACKAGES := kmod-rtw88-8723ds wpad
+endef
+TARGET_DEVICES += radxa_rock-pi-s
+
 define Device/radxa_rock-4d
   DEVICE_VENDOR := Radxa
   DEVICE_MODEL := ROCK 4D
@@ -570,6 +619,16 @@ define Device/radxa_rock-4se
   UBOOT_DEVICE_NAME := rock-4se-rk3399
 endef
 TARGET_DEVICES += radxa_rock-4se
+
+define Device/radxa_rock-5-itx
+  DEVICE_VENDOR := Radxa
+  DEVICE_MODEL := ROCK 5 ITX
+  SOC := rk3588
+  UBOOT_DEVICE_NAME := rock-5-itx-rk3588
+  DEVICE_PACKAGES := kmod-ata-ahci kmod-hwmon-pwmfan kmod-r8125-rss
+  IMAGE/sysupgrade.img.gz := boot-common | boot-script | pine64-img | gzip | append-metadata
+endef
+TARGET_DEVICES += radxa_rock-5-itx
 
 define Device/radxa_rock-5a
   DEVICE_VENDOR := Radxa

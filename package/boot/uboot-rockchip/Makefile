@@ -22,6 +22,22 @@ define U-Boot/Default
 endef
 
 
+# RK3308 boards
+
+define U-Boot/rk3308/Default
+  BUILD_SUBTARGET:=armv8
+  DEPENDS:=+PACKAGE_u-boot-$(1):rkbin-rk3308
+  ATF:=rk3308_bl31_v2.26.elf
+  TPL:=rk3308_ddr_589MHz_uart2_m1_v2.09.bin
+endef
+
+define U-Boot/rock-pi-s-rk3308
+  $(U-Boot/rk3308/Default)
+  NAME:=ROCK Pi S
+  BUILD_DEVICES:= \
+    radxa_rock-pi-s
+endef
+
 # RK3328 boards
 
 define U-Boot/rk3328/Default
@@ -74,6 +90,19 @@ define U-Boot/orangepi-r1-plus-lts-rk3328
     xunlong_orangepi-r1-plus-lts
 endef
 
+define U-Boot/rock-pi-e-rk3328
+  $(U-Boot/rk3328/Default)
+  NAME:=ROCK Pi E
+  BUILD_DEVICES:= \
+    radxa_rock-pi-e
+endef
+
+define U-Boot/rock-pi-e-v3-rk3328
+  $(U-Boot/rk3328/Default)
+  NAME:=ROCK Pi E v3.0
+  BUILD_DEVICES:= \
+    radxa_rock-pi-e-v3
+endef
 
 # RK3399 boards
 
@@ -263,6 +292,13 @@ define U-Boot/panther-x2-rk3566
     panther_x2
 endef
 
+define U-Boot/radxa-cm3-io-rk3566
+  $(U-Boot/rk3566/Default)
+  NAME:=CM3 IO
+  BUILD_DEVICES:= \
+    radxa_cm3-io
+endef
+
 define U-Boot/radxa-zero-3-rk3566
   $(U-Boot/rk3566/Default)
   NAME:=ZERO 3E/3W
@@ -449,6 +485,13 @@ define U-Boot/orangepi-5-plus-rk3588
     xunlong_orangepi-5-ultra
 endef
 
+define U-Boot/rock-5-itx-rk3588
+  $(U-Boot/rk3588/Default)
+  NAME:=ROCK 5 ITX/ITX+
+  BUILD_DEVICES:= \
+    radxa_rock-5-itx
+endef
+
 define U-Boot/rock5b-rk3588
   $(U-Boot/rk3588/Default)
   NAME:=ROCK 5B
@@ -502,11 +545,13 @@ define U-Boot/rock-5c-rk3588s
 endef
 
 UBOOT_TARGETS := \
+  rock-pi-s-rk3308 \
   generic-rk3528 \
   nanopi-zero2-rk3528 \
   radxa-e20c-rk3528 \
   nanopi-r3s-rk3566 \
   panther-x2-rk3566 \
+  radxa-cm3-io-rk3566 \
   radxa-zero-3-rk3566 \
   rock-3c-rk3566 \
   bpi-r2-pro-rk3568 \
@@ -527,6 +572,7 @@ UBOOT_TARGETS := \
   generic-rk3588 \
   nanopc-t6-rk3588 \
   orangepi-5-plus-rk3588 \
+  rock-5-itx-rk3588 \
   rock5b-rk3588 \
   sige7-rk3588 \
   nanopi-r6c-rk3588s \
@@ -549,6 +595,8 @@ UBOOT_TARGETS := \
   sv901-eaio-rk3399 \
   guangmiao-g4c-rk3399 \
   xiaobao-nas-v1-rk3399 \
+  rock-pi-e-rk3328 \
+  rock-pi-e-v3-rk3328 \
   nanopi-r2c-rk3328 \
   nanopi-r2c-plus-rk3328 \
   nanopi-r2s-rk3328 \

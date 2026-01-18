@@ -23,6 +23,7 @@ rockchip_setup_interfaces()
 	friendlyarm,nanopi-r6c|\
 	hinlink,opc-h66k|\
 	radxa,e52c|\
+	radxa,rockpi-e|\
 	rocktech,mpc1903|\
 	seewo,srcm3588-io|\
 	sharevdi,h3399pc|\
