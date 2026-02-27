@@ -70,7 +70,6 @@ define Build/Compile
 		$(KERNEL_MAKE_FLAGS) \
 		$(PKG_MAKE_FLAGS) \
 		M="$(PKG_BUILD_DIR)" \
-		EXTRA_CFLAGS+="-DSFE_SUPPORT_IPV6" \
 		SFE_SUPPORT_IPV6=y \
 		modules
 endef
