@@ -20,6 +20,9 @@ ubootenv_add_sys_mtd() {
 }
 
 case "$board" in
+anysafe,e1)
+	ubootenv_add_mtd "0:APPSBLENV" "0x0" "0x10000" "0x10000"
+	;;
 compex,wpq873|\
 edgecore,eap102|\
 zyxel,nbg7815)
