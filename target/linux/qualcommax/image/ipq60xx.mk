@@ -113,6 +113,19 @@ define Device/link_nn6000-v2
 endef
 TARGET_DEVICES += link_nn6000-v2
 
+define Device/philips_ly1800
+	$(call Device/FitImage)
+	$(call Device/EmmcImage)
+	DEVICE_VENDOR := Philips
+	DEVICE_MODEL := LY1800 (Double Fish AX1800)
+	SOC := ipq6010
+	BLOCKSIZE := 128k
+	KERNEL_SIZE := 6144k
+	DEVICE_DTS_CONFIG := config@cp01-c1
+	DEVICE_PACKAGES := ipq-wifi-philips_ly1800
+endef
+TARGET_DEVICES += philips_ly1800
+
 define Device/linksys_mr7350
 	$(call Device/FitImage)
 	DEVICE_VENDOR := Linksys

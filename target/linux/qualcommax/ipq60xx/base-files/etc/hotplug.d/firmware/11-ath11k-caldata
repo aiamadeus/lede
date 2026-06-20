@@ -20,6 +20,7 @@ case "$FIRMWARE" in
 		;;
 	jdcloud,re-cs-02|\
 	jdcloud,re-ss-01|\
+	philips,ly1800|\
 	redmi,ax5-jdcloud)
 		caldata_extract_mmc "0:ART" 0x1000 0x10000
 		;;
