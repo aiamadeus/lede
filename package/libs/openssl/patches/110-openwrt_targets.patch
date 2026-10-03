@@ -57,8 +57,7 @@ Signed-off-by: Eneas U de Queiroz <cote2004-github@yahoo.com>
 +        perlasm_scheme  => "linux64v2",
 +    },
 +    "linux-riscv64-openwrt" => {
-+        inherit_from    => [ "linux-generic64", "openwrt" ],
-+        perlasm_scheme   => "linux64",
++        inherit_from    => [ "linux64-riscv64", "openwrt" ],
 +    },
 +    "linux-x86_64-openwrt" => {
 +        inherit_from    => [ "linux-x86_64", "openwrt" ],
